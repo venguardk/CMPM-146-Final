@@ -1,4 +1,5 @@
 import retro    # import retro to play Street Fighter using a ROM
+import pygame
 
 # python -m retro.import . # run this from the roms folder
 
@@ -60,10 +61,12 @@ class StreetFighter(Env):
         # Startup and instance of the game
         self.game = retro.make(game = 'StreetFighterIISpecialChampionEdition-Genesis', 
                                use_restricted_actions=retro.Actions.FILTERED)
+        self.raw_obs = np.zeros((200,256,3), dtype=np.uint8)
     
     def step(self, action):
         # Take a step
         obs, reward, done, info = self.game.step(action)
+        self.raw_obs = obs
         obs = self.preprocess(obs)
 
         # Frame delta
@@ -78,12 +81,16 @@ class StreetFighter(Env):
         return frame_delta, reward, done, info
 
     def render(self, *args, **kwargs):
-        self.game.render()
+        img = pygame.image.frombuffer(self.raw_obs.tobytes(), (self.raw_obs.shape[1], self.raw_obs.shape[0]), 'RGB')
+        img = pygame.transform.scale(img, (800, 600))
+        win.blit(img, (0, 0))
+        pygame.display.flip()
 
 
     def reset(self):    
         # Return the first frame
         obs = self.game.reset()
+        self.raw_obs = obs
         obs = self.preprocess(obs)
         # current frame - previous frame
         self.previous_frame = obs
@@ -105,21 +112,65 @@ class StreetFighter(Env):
 
 # Testing
 env = StreetFighter()
-env.observation_space.sample()  # sample the observation space
+#env.observation_space.sample()  # sample the observation space
 # env.action_space.sample()   # samples the action space
-print (env.observation_space.shape)
-print (env.action_space.shape)
+#print (env.observation_space.shape)
+#print (env.action_space.shape)
 obs = env.reset()   # resets game to starting state
+
+pygame.init()
+win = pygame.display.set_mode((800, 600))
+
+buttons = ['B', 'A', 'MODE', 'START', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'C', 'Y', 'X', 'Z']
+
+action_array = [0,0,0,0,0,0,0,0,0,0,0,0]
+
 done = False        # Set flag to false
 for game in range(1):
     while not done:
         if done:
             obs = env.reset()
-        env.render()    # renders environment
-        obs, reward, done, info = env.step(env.action_space.sample())   # randomly takes action
-        time.sleep(0.05)
-        if reward > 0:
-            print(reward)
+
+        actions = set()
+
+        # Display
+        env.render()
+
+        # Control Events
+        pygame.event.pump()
+        keys = pygame.key.get_pressed()
+        
+        for event in pygame.event.get():
+            if keys[pygame.K_RIGHT]:
+                actions.add('RIGHT')
+            if keys[pygame.K_LEFT]:
+                actions.add('LEFT')
+            if keys[pygame.K_DOWN]:
+                actions.add('DOWN')
+            if keys[pygame.K_UP]:
+                actions.add('UP')
+            if keys[pygame.K_z]:
+                actions.add('A')
+            if keys[pygame.K_x]:
+                actions.add('B')
+            if keys[pygame.K_c]:
+                actions.add('C')
+            if keys[pygame.K_a]:
+                actions.add('X')
+            if keys[pygame.K_s]:
+                actions.add('Y')
+            if keys[pygame.K_d]:
+                actions.add('Z')
+
+            for i, a in enumerate(buttons):
+                if a in actions:
+                    action_array[i] = 1
+                else:
+                    action_array[i] = 0
+
+        obs, reward, done, info = env.step(action_array)   # randomly takes action
+        time.sleep(0.01)
+
 env.close()
 
 # plt.imshow(cv2.cvtColor(obs, cv2.COLOR_BGR2RGB)) # Shows the frame data (what has changed)
