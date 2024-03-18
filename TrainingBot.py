@@ -159,7 +159,7 @@ def optimize_agent(trial):
 
         # Create algo
         model = PPO('CnnPolicy', env, tensorboard_log=LOG_DIR, verbose=0, **model_params) # important
-        model.learn(total_timesteps=100) # change for training speed
+        model.learn(total_timesteps=100000) # change for training speed
 
         #Evaluate model
         mean_reward, _ = evaluate_policy(model, env, n_eval_episodes=1)
@@ -186,7 +186,7 @@ def optimize_agent(trial):
 
 # # Creating the study
 study = optuna.create_study(direction='maximize')
-study.optimize(optimize_agent, n_trials=1, n_jobs=1)  
+study.optimize(optimize_agent, n_trials=10, n_jobs=1)  
 study.best_params
 study.best_trials
 
@@ -222,15 +222,17 @@ env = DummyVecEnv([lambda:env])
 env = VecFrameStack(env, 4, channels_order='last')
 
 model_params = study.best_params
-model_params['n_steps'] = 7488  # set n_steps to 7488 or a factor of 64
+# model_params['n_steps'] = 7488  # set n_steps to 7488 or a factor of 64
+model_params = {'n_steps': 2570.949, 'gamma': 0.906, 'learning_rate': 2e-07, 'clip_range': 0.369, 'gae_lambda': 0.891}
 # model_params['Learning_rate'] = 5e-7
+model_params['n_steps'] = 40*64
 model_params
 
 model = PPO('CnnPolicy', env, tensorboard_log=LOG_DIR, verbose=1, **model_params)
 # Reload previous weights from HPO for transfer learning
 model.load(os.path.join(OPT_DIR, best_model))
 # Kick off training
-model.learn(total_timesteps = 30000, callback=callback)
+model.learn(total_timesteps = 5000000, callback=callback)
 # model.learn(total_timestep = 5000000)
 
 # Testing the Model---------------------------------------------------------------------------------
@@ -252,7 +254,8 @@ for game in range(1):
         action = model.predict(obs)[0]
         obs, reward, done, info = env.step(action)
         time.sleep(0.01)
-        print(reward)
+        if (reward != 0):
+            print(reward)
 env.close()
 
 # Gameplay Loop-------------------------------------------------------------------------------------
